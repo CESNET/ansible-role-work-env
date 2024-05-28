@@ -1,0 +1,15 @@
+galaxy_info:
+  role_name: work_env
+  author: Martin Kuba
+  description: Sets Debian command-line environment
+  company: CESNET
+  license: Apache
+  min_ansible_version: 2.5
+  platforms:
+    - name: Debian
+      versions:
+        - buster
+        - bookworm
+  galaxy_tags:
+    - "system"
+dependencies: []

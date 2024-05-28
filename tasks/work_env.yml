@@ -1,0 +1,144 @@
+---
+# Sets working environment on Debian to a sensible state
+
+- name: "install Czech and English locales"
+  locale_gen:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - "en_US.UTF-8"
+    - "cs_CZ.UTF-8"
+
+- name: "set Europe/Prague timezone"
+  timezone:
+    name: Europe/Prague
+
+- name: "install packages"
+  apt:
+    name:
+      - vim
+      - micro
+      - htop
+      - locate
+      - zsh
+      - zplug
+
+- name: "bash and vim"
+  block:
+    - name: "create /root/.bashrc if it does not exist"
+      copy:
+        content: ""
+        dest: /root/.bashrc
+        force: no
+
+    - name: "fix cmd prompt and set vim as editor"
+      blockinfile:
+        dest: /root/.bashrc
+        block: |
+          # If this is an xterm set the title to user@host:dir
+          case "$TERM" in
+          xterm*|rxvt*)
+             PS1="\[\e]0;\u@$HOSTNAME \w\a\]\u@$HOSTNAME:\w# "
+             ;;
+          *)
+             ;;
+          esac
+          export EDITOR=vi
+
+    - name: "set /etc/vim/vimrc.local"
+      copy:
+        dest: /etc/vim/vimrc.local
+        content: |
+          " fix mouse
+          set mouse=r
+          " syntax highlighting
+          syntax on
+          set background=dark
+          " jump to the last position when reopening a file
+          au BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g'\"" | endif
+
+    - name: "disable defaults.vim to be loaded"
+      lineinfile:
+        path: /etc/vim/vimrc
+        regexp: 'let g:skip_defaults_vim = 1'
+        line: 'let g:skip_defaults_vim = 1'
+
+- name: "zsh and nano"
+  block:
+    - name: "create /root/.zshrc if it does not exist"
+      copy:
+        content: ""
+        dest: /root/.zshrc
+        force: no
+
+    # from https://wiki.debian.org/Zsh
+    - name: ".zshrc"
+      blockinfile:
+        dest: /root/.zshrc
+        block: |
+          export EDITOR=nano
+          # Aliases
+          alias ls='ls --color=auto'
+          alias ll='ls -lah --color=auto'
+          alias grep='grep --color=auto'
+          alias ec="$EDITOR $HOME/.zshrc" # edit .zshrc
+          alias sc="source $HOME/.zshrc"  # reload zsh configuration
+
+          # Set up the prompt - if you load Theme with zplugin as in this example, this will be overriden by the Theme. If you comment out the Theme in zplugins, this will be loaded.
+          autoload -Uz promptinit
+          promptinit
+          prompt adam1            # see Zsh Prompt Theme below
+
+          # Use vi keybindings even if our EDITOR is set to vi
+          bindkey -e
+
+          setopt histignorealldups sharehistory
+
+          # Keep 5000 lines of history within the shell and save it to ~/.zsh_history:
+          HISTSIZE=5000
+          SAVEHIST=5000
+          HISTFILE=~/.zsh_history
+
+          # Use modern completion system
+          autoload -Uz compinit
+          compinit
+
+          # zplug - manage plugins
+          source /usr/share/zplug/init.zsh
+          zplug "plugins/git", from:oh-my-zsh
+          zplug "plugins/sudo", from:oh-my-zsh
+          zplug "plugins/command-not-found", from:oh-my-zsh
+          zplug "zsh-users/zsh-syntax-highlighting"
+          zplug "zsh-users/zsh-autosuggestions"
+          zplug "zsh-users/zsh-history-substring-search"
+          zplug "zsh-users/zsh-completions"
+          zplug "junegunn/fzf"
+          zplug "themes/robbyrussell", from:oh-my-zsh, as:theme   # Theme
+
+          # zplug - install/load new plugins when zsh is started or reloaded
+          if ! zplug check --verbose; then
+              printf "Install? [y/N]: "
+              if read -q; then
+                  echo; zplug install
+              fi
+          fi
+          zplug load --verbose
+
+- name: "htop settings"
+  block:
+    - name: "dir /root/.config/htop"
+      file:
+        path: /root/.config/htop
+        state: directory
+
+    - name: "create /root/.config/htop/htoprc"
+      copy:
+        content: ""
+        dest: /root/.config/htop/htoprc
+        force: no
+
+    - name: "htop hide user threads"
+      lineinfile:
+        path: /root/.config/htop/htoprc
+        regexp: '^hide_userland_threads='
+        line:   'hide_userland_threads=1'
